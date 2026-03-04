@@ -9,18 +9,18 @@ Pure frontend video frame extractor built with Angular.
 ## Requirements
 
 - Node.js 22+
-- npm 11+
+- pnpm 10+
 
 ## Install
 
 ```bash
-npm install
+pnpm install
 ```
 
 ## Run (Angular Host)
 
 ```bash
-npm start
+pnpm start
 ```
 
 Default URL: `http://localhost:4200`
@@ -28,7 +28,7 @@ Default URL: `http://localhost:4200`
 ## Build
 
 ```bash
-npm run build
+pnpm build
 ```
 
 ## Usage
