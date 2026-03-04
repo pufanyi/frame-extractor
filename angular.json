@@ -4,7 +4,6 @@
   "cli": {
     "packageManager": "pnpm"
   },
-  "defaultProject": "app",
   "newProjectRoot": "projects",
   "projects": {
     "app": {

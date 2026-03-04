@@ -31,6 +31,22 @@ Default URL: `http://localhost:4200`
 pnpm build
 ```
 
+## Deploy (Cloudflare Workers Static Assets)
+
+1. Authenticate once:
+
+```bash
+pnpm wrangler login
+```
+
+2. Deploy:
+
+```bash
+pnpm deploy
+```
+
+This project deploys `dist/app` as static assets with SPA fallback via [`wrangler.jsonc`](/mnt/umm/users/pufanyi/workspace/vbvr-frame-extractor/wrangler.jsonc).
+
 ## Usage
 
 1. Select a video file (`.mp4/.mov/.webm/.mkv`).
