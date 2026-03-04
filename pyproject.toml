@@ -1,0 +1,11 @@
+[project]
+name = "vbvr-frame-extractor"
+version = "0.1.0"
+description = "A minimal web app that uploads a video and uniformly extracts N frames from it."
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi==0.115.0",
+    "uvicorn==0.30.6",
+    "python-multipart==0.0.9",
+    "opencv-python-headless==4.10.0.84",
+]
