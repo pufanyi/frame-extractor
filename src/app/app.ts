@@ -15,6 +15,9 @@ const MAX_FRAME_COUNT = 40;
 const MAX_EXPORT_FRAMES = 20;
 const SEEK_EPSILON_SECONDS = 0.05;
 const SEEK_TIMEOUT_MS = 8000;
+const METADATA_TIMEOUT_MS = 15000;
+const FRAME_DATA_TIMEOUT_MS = 20000;
+const PROGRESS_TICK_MS = 1000;
 
 @Component({
   selector: 'app-root',
@@ -35,6 +38,12 @@ export class App {
   isExtracting = false;
   isExporting = false;
   frames: ExtractedFrame[] = [];
+  extractProgressCurrent = 0;
+  extractProgressTotal = 0;
+
+  private extractPhase = '';
+  private extractStartedAtMs = 0;
+  private extractProgressTimerId?: ReturnType<typeof setInterval>;
 
   get selectedCount(): number {
     return this.frames.filter((frame) => frame.selected).length;
@@ -42,6 +51,13 @@ export class App {
 
   get canExport(): boolean {
     return this.selectedCount > 0 && !this.isExtracting && !this.isExporting;
+  }
+
+  get extractProgressPercent(): number {
+    if (this.extractProgressTotal < 1) {
+      return 0;
+    }
+    return Math.floor((this.extractProgressCurrent / this.extractProgressTotal) * 100);
   }
 
   async onExtract(event: Event): Promise<void> {
@@ -77,7 +93,7 @@ export class App {
     this.isExporting = false;
     this.errorMessage = '';
     this.frames = [];
-    this.statusMessage = 'Loading video metadata...';
+    this.startExtractionProgress(requestedCount, 'Loading video metadata...');
 
     try {
       const frames = await this.extractFrames(file, requestedCount);
@@ -89,6 +105,7 @@ export class App {
     } catch (error: unknown) {
       this.fail(this.toErrorMessage(error));
     } finally {
+      this.stopExtractionProgress();
       this.isExtracting = false;
     }
   }
@@ -153,7 +170,10 @@ export class App {
     video.load();
 
     try {
+      this.setExtractionPhase('Loading video metadata...');
       await this.waitForLoadedMetadata(video);
+
+      this.setExtractionPhase('Decoding video frames...');
       await this.waitForLoadedData(video);
 
       const duration = video.duration;
@@ -170,8 +190,10 @@ export class App {
       const extracted: ExtractedFrame[] = [];
 
       for (let i = 0; i < sampleTimes.length; i += 1) {
+        this.extractProgressCurrent = i;
+        this.setExtractionPhase('Seeking frame...');
+
         const time = sampleTimes[i];
-        this.statusMessage = `Extracting frames... (${i + 1}/${sampleTimes.length})`;
         await this.seekVideo(video, time);
         context.drawImage(video, 0, 0, width, height);
 
@@ -183,6 +205,10 @@ export class App {
           dataUrl: canvas.toDataURL('image/jpeg', 0.92),
           selected: false
         });
+
+        this.extractProgressCurrent = i + 1;
+        this.setExtractionPhase('Extracting frames...');
+        await this.yieldToUi();
       }
 
       return extracted;
@@ -204,48 +230,68 @@ export class App {
   }
 
   private waitForLoadedMetadata(video: HTMLVideoElement): Promise<void> {
-    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
-      return Promise.resolve();
-    }
-    return new Promise<void>((resolve, reject) => {
-      const onLoaded = (): void => {
-        cleanup();
-        resolve();
-      };
-      const onError = (): void => {
-        cleanup();
-        reject(new Error('Video file could not be opened. It may be corrupted or unsupported.'));
-      };
-      const cleanup = (): void => {
-        video.removeEventListener('loadedmetadata', onLoaded);
-        video.removeEventListener('error', onError);
-      };
-
-      video.addEventListener('loadedmetadata', onLoaded);
-      video.addEventListener('error', onError);
-    });
+    return this.waitForMediaReadiness(
+      video,
+      HTMLMediaElement.HAVE_METADATA,
+      'loadedmetadata',
+      METADATA_TIMEOUT_MS,
+      'Timed out while loading video metadata. The file may be unsupported or corrupted.'
+    );
   }
 
   private waitForLoadedData(video: HTMLVideoElement): Promise<void> {
-    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+    return this.waitForMediaReadiness(
+      video,
+      HTMLMediaElement.HAVE_CURRENT_DATA,
+      'loadeddata',
+      FRAME_DATA_TIMEOUT_MS,
+      'Timed out while decoding initial video frame data.'
+    );
+  }
+
+  private waitForMediaReadiness(
+    video: HTMLVideoElement,
+    minimumReadyState: number,
+    successEvent: 'loadedmetadata' | 'loadeddata',
+    timeoutMs: number,
+    timeoutMessage: string
+  ): Promise<void> {
+    if (video.readyState >= minimumReadyState) {
       return Promise.resolve();
     }
+
     return new Promise<void>((resolve, reject) => {
-      const onLoaded = (): void => {
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+      const onSuccess = (): void => {
         cleanup();
         resolve();
       };
       const onError = (): void => {
         cleanup();
-        reject(new Error('Video frame data could not be decoded.'));
+        reject(new Error('Video decode failed. The codec may not be supported by this browser.'));
+      };
+      const onAbort = (): void => {
+        cleanup();
+        reject(new Error('Video loading was aborted.'));
+      };
+      const onTimeout = (): void => {
+        cleanup();
+        reject(new Error(timeoutMessage));
       };
       const cleanup = (): void => {
-        video.removeEventListener('loadeddata', onLoaded);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        video.removeEventListener(successEvent, onSuccess);
         video.removeEventListener('error', onError);
+        video.removeEventListener('abort', onAbort);
       };
 
-      video.addEventListener('loadeddata', onLoaded);
+      video.addEventListener(successEvent, onSuccess);
       video.addEventListener('error', onError);
+      video.addEventListener('abort', onAbort);
+      timeoutId = setTimeout(onTimeout, timeoutMs);
     });
   }
 
@@ -287,6 +333,62 @@ export class App {
       video.addEventListener('error', onError);
       timeoutId = setTimeout(onTimeout, SEEK_TIMEOUT_MS);
       video.currentTime = clampedTime;
+    });
+  }
+
+  private startExtractionProgress(total: number, initialPhase: string): void {
+    this.extractProgressTotal = Math.max(0, total);
+    this.extractProgressCurrent = 0;
+    this.extractStartedAtMs = Date.now();
+    this.setExtractionPhase(initialPhase);
+
+    if (this.extractProgressTimerId) {
+      clearInterval(this.extractProgressTimerId);
+    }
+
+    this.extractProgressTimerId = setInterval(() => {
+      if (this.isExtracting) {
+        this.updateExtractionStatus();
+      }
+    }, PROGRESS_TICK_MS);
+  }
+
+  private stopExtractionProgress(): void {
+    if (this.extractProgressTimerId) {
+      clearInterval(this.extractProgressTimerId);
+      this.extractProgressTimerId = undefined;
+    }
+    this.extractPhase = '';
+  }
+
+  private setExtractionPhase(phase: string): void {
+    this.extractPhase = phase;
+    this.updateExtractionStatus();
+  }
+
+  private updateExtractionStatus(): void {
+    if (!this.isExtracting || !this.extractPhase) {
+      return;
+    }
+
+    const elapsed = this.formatElapsedSeconds(this.extractStartedAtMs);
+    const total = this.extractProgressTotal;
+    const current = Math.min(this.extractProgressCurrent, total);
+    const percent = this.extractProgressPercent;
+
+    this.statusMessage = `${this.extractPhase} ${current}/${total} (${percent}%) - ${elapsed}s`;
+  }
+
+  private formatElapsedSeconds(startedAtMs: number): string {
+    if (startedAtMs < 1) {
+      return '0';
+    }
+    return String(Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000)));
+  }
+
+  private yieldToUi(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
     });
   }
 
@@ -357,6 +459,10 @@ export class App {
 
   private fail(message: string): void {
     this.errorMessage = message;
+    if (this.isExtracting && this.extractProgressTotal > 0) {
+      this.statusMessage = `Extraction stopped at ${this.extractProgressCurrent}/${this.extractProgressTotal}.`;
+      return;
+    }
     this.statusMessage = '';
   }
 

@@ -41,6 +41,16 @@
       <p class="status">{{ statusMessage }}</p>
     }
 
+    @if (isExtracting) {
+      <div class="progress-panel" aria-live="polite">
+        <div class="progress-meta">
+          <span>{{ extractProgressCurrent }} / {{ extractProgressTotal }}</span>
+          <span>{{ extractProgressPercent }}%</span>
+        </div>
+        <progress [value]="extractProgressCurrent" [max]="extractProgressTotal || 1"></progress>
+      </div>
+    }
+
     @if (errorMessage) {
       <p class="error">{{ errorMessage }}</p>
     }
