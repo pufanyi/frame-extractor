@@ -3,3 +3,6 @@ __pycache__/
 frames/
 .venv/
 *.egg-info/
+.angular/
+node_modules/
+dist/
