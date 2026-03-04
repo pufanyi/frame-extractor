@@ -45,7 +45,7 @@ pnpm wrangler login
 pnpm deploy
 ```
 
-This project deploys `dist/app` as static assets with SPA fallback via [`wrangler.jsonc`](/mnt/umm/users/pufanyi/workspace/vbvr-frame-extractor/wrangler.jsonc).
+This project deploys `dist/app` as static assets with SPA fallback via `wrangler.jsonc`.
 
 ## Usage
 
