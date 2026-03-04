@@ -23,6 +23,17 @@ Then open http://localhost:8000 in your browser.
 3. Click **Extract Frames**.
 4. The extracted frames are displayed in a grid.
 
+### Export Filmstrip SVG
+
+After extracting frames you can export selected frames as a filmstrip-style SVG:
+
+1. Click on frames (or their checkboxes) to select the ones you want.
+2. Click **Export Filmstrip SVG** (green button).
+3. A `.svg` file will be downloaded. It contains a dark film-strip with sprocket holes and the selected frames embedded as base64 PNG images.
+4. The SVG is self-contained — no external dependencies — and works in any browser or vector editor.
+
+The layout adapts automatically to the number of selected frames (3–8 recommended, up to 20 supported).
+
 ## Tech Stack
 
 - **Backend:** Python, FastAPI, OpenCV
