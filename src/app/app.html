@@ -1,0 +1,86 @@
+<main class="app-shell">
+  <section class="panel">
+    <header class="hero">
+      <p class="eyebrow">Angular Frontend Host</p>
+      <h1>Video Frame Extractor</h1>
+      <p class="subtitle">
+        Pure browser workflow: local video decode, frame extraction, selection, and filmstrip SVG export.
+      </p>
+    </header>
+
+    <form class="controls" (submit)="onExtract($event)">
+      <label class="field">
+        <span>Upload video (.mp4 / .mov / .webm / .mkv)</span>
+        <input
+          #videoInput
+          type="file"
+          [accept]="acceptTypes"
+          [disabled]="isExtracting || isExporting"
+        />
+      </label>
+
+      <label class="field compact">
+        <span>Frames</span>
+        <input
+          type="number"
+          name="frameCount"
+          min="1"
+          [max]="maxFrameCount"
+          [(ngModel)]="frameCountInput"
+          [disabled]="isExtracting || isExporting"
+          required
+        />
+      </label>
+
+      <button type="submit" [disabled]="isExtracting || isExporting">
+        {{ isExtracting ? "Extracting..." : "Extract Frames" }}
+      </button>
+    </form>
+
+    @if (statusMessage) {
+      <p class="status">{{ statusMessage }}</p>
+    }
+
+    @if (errorMessage) {
+      <p class="error">{{ errorMessage }}</p>
+    }
+
+    @if (frames.length > 0) {
+      <div class="export-bar">
+        <button
+          type="button"
+          class="export-btn"
+          (click)="exportFilmstrip()"
+          [disabled]="!canExport"
+        >
+          {{ isExporting ? "Generating..." : "Export Filmstrip SVG" }}
+        </button>
+        <span>{{ selectedCount }} frame{{ selectedCount === 1 ? "" : "s" }} selected</span>
+      </div>
+
+      <div class="grid">
+        @for (frame of frames; track frame.id; let i = $index) {
+          <label
+            class="grid-item"
+            [class.selected]="frame.selected"
+            [style.animationDelay.ms]="(i % 12) * 50"
+          >
+            <input
+              type="checkbox"
+              [checked]="frame.selected"
+              (change)="setFrameSelection(frame, $event)"
+            />
+            <img
+              [src]="frame.dataUrl"
+              [alt]="'Frame at ' + formatTimestamp(frame.time)"
+              loading="lazy"
+            />
+            <span class="stamp">{{ formatTimestamp(frame.time) }}</span>
+          </label>
+        }
+      </div>
+    }
+
+    <p class="note">Everything runs locally in your browser. No upload to server.</p>
+  </section>
+</main>

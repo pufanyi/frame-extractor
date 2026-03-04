@@ -1,0 +1,232 @@
+:host {
+  --ink-900: #1b2529;
+  --ink-700: #39464b;
+  --line: #e6dac8;
+  --accent: #0f8b8d;
+  --accent-strong: #0b6d6f;
+  --highlight: #e38f22;
+  --danger: #b42318;
+
+  display: block;
+  min-height: 100vh;
+  color: var(--ink-900);
+  font-family: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: clamp(1rem, 2.6vw, 2.4rem);
+  background:
+    radial-gradient(circle at 0% 0%, #ffe0b6 0, transparent 48%),
+    radial-gradient(circle at 100% 0%, #c6eadf 0, transparent 42%),
+    linear-gradient(160deg, #fffef8 0%, #f3faf8 58%, #fff7ea 100%);
+}
+
+.panel {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  padding: clamp(1rem, 2.8vw, 2rem);
+  border-radius: 1.15rem;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, #ffffff 88%, #f8f1e7 12%);
+  box-shadow: 0 22px 55px -42px #273338;
+  animation: reveal 360ms ease-out;
+}
+
+.hero {
+  margin-bottom: 1.2rem;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+h1 {
+  margin: 0.2rem 0 0;
+  font-size: clamp(1.65rem, 3vw, 2.5rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 0.65rem 0 0;
+  max-width: 60ch;
+  color: var(--ink-700);
+}
+
+.controls {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: minmax(0, 1fr) 150px auto;
+  align-items: end;
+  margin-top: 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.38rem;
+  font-size: 0.92rem;
+}
+
+.field > span {
+  font-weight: 600;
+}
+
+.field input[type='file'],
+.field input[type='number'] {
+  width: 100%;
+  border: 1px solid #cfc6b8;
+  border-radius: 0.62rem;
+  background: #fffcf6;
+  color: var(--ink-900);
+  padding: 0.62rem 0.7rem;
+  font: inherit;
+}
+
+.field input[type='number'] {
+  text-align: center;
+}
+
+button {
+  border: 0;
+  border-radius: 0.7rem;
+  background: linear-gradient(140deg, var(--accent) 0%, var(--accent-strong) 100%);
+  color: #f5fffe;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.status,
+.error {
+  margin: 0.85rem 0 0;
+  font-size: 0.93rem;
+}
+
+.status {
+  color: #0c5d5f;
+}
+
+.error {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.export-bar {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.export-btn {
+  background: linear-gradient(140deg, var(--highlight) 0%, #ca6f13 100%);
+  color: #fffaf3;
+}
+
+.export-bar span {
+  font-size: 0.9rem;
+  color: var(--ink-700);
+}
+
+.grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0.85rem;
+}
+
+.grid-item {
+  display: grid;
+  gap: 0.35rem;
+  border-radius: 0.85rem;
+  border: 2px solid #d8d1c5;
+  background: #fff;
+  padding: 0.5rem;
+  cursor: pointer;
+  transform-origin: center;
+  animation: tile 260ms ease both;
+}
+
+.grid-item input[type='checkbox'] {
+  margin: 0;
+  width: 1.02rem;
+  height: 1.02rem;
+  accent-color: var(--accent);
+}
+
+.grid-item img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 0.52rem;
+  border: 1px solid #d6cec0;
+}
+
+.grid-item .stamp {
+  font-size: 0.77rem;
+  font-weight: 700;
+  color: #546166;
+}
+
+.grid-item.selected {
+  border-color: var(--accent);
+  box-shadow: 0 12px 30px -24px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+.note {
+  margin: 1.15rem 0 0;
+  color: #5c6a70;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 880px) {
+  .controls {
+    grid-template-columns: 1fr;
+  }
+
+  .field.compact {
+    max-width: 170px;
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tile {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

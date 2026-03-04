@@ -1,40 +1,45 @@
-# Video Frame Extractor
+# VBVR Frame Extractor (Angular)
 
-A minimal web app that uploads a video and uniformly extracts N frames from it.
+Pure frontend video frame extractor built with Angular.
+
+- No Python backend
+- No file upload to server
+- Video decoding, frame extraction, and SVG generation all run in the browser
 
 ## Requirements
 
-- Python 3.9+
-- [uv](https://docs.astral.sh/uv/)
-- FFmpeg codecs (usually pre-installed; needed by OpenCV for some formats)
+- Node.js 22+
+- npm 11+
 
-## Run
+## Install
 
 ```bash
-uv run uvicorn app:app --reload --port 8000
+npm install
 ```
 
-Then open http://localhost:8000 in your browser.
+## Run (Angular Host)
+
+```bash
+npm start
+```
+
+Default URL: `http://localhost:4200`
+
+## Build
+
+```bash
+npm run build
+```
 
 ## Usage
 
-1. Select a video file (mp4 / mov / webm / mkv).
-2. Enter the number of frames to extract (positive integer).
+1. Select a video file (`.mp4/.mov/.webm/.mkv`).
+2. Set frame count.
 3. Click **Extract Frames**.
-4. The extracted frames are displayed in a grid.
+4. Select frames from the grid.
+5. Click **Export Filmstrip SVG**.
 
-### Export Filmstrip SVG
+## Notes
 
-After extracting frames you can export selected frames as a filmstrip-style SVG:
-
-1. Click on frames (or their checkboxes) to select the ones you want.
-2. Click **Export Filmstrip SVG** (green button).
-3. A `.svg` file will be downloaded. It contains a dark film-strip with sprocket holes and the selected frames embedded as base64 PNG images.
-4. The SVG is self-contained — no external dependencies — and works in any browser or vector editor.
-
-The layout adapts automatically to the number of selected frames (3–8 recommended, up to 20 supported).
-
-## Tech Stack
-
-- **Backend:** Python, FastAPI, OpenCV
-- **Frontend:** Vanilla HTML / CSS / JavaScript
+- Extraction uses browser video seeking + canvas snapshots, so sampled frames are based on timeline positions.
+- Very large videos or very high frame count may be slower due to browser memory limits.
