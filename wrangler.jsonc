@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "frame-extractor",
+  "compatibility_date": "2026-03-04",
+  "assets": {
+    "directory": "./dist/app",
+    "not_found_handling": "single-page-application"
+  }
+}
