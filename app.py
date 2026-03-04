@@ -119,8 +119,15 @@ def _build_filmstrip_svg(frame_paths: list[str]) -> str:
     frame_pad = 14     # padding between frame image and sprocket band
     cell_gap = 8       # gap between adjacent frames (the "cut line")
     cell_w = frame_display_w + 2 * frame_pad
-    total_w = cell_w * n + cell_gap * (n - 1) if n > 1 else cell_w
-    strip_h = frame_display_h + 2 * frame_pad + 2 * perf_band
+    film_w = cell_w * n + cell_gap * (n - 1) if n > 1 else cell_w
+    film_h = frame_display_h + 2 * frame_pad + 2 * perf_band
+
+    # White outer margin around the whole strip, kept uniform on all sides.
+    outer_border = 24
+    canvas_w = film_w + 2 * outer_border
+    canvas_h = film_h + 2 * outer_border
+    film_x = outer_border
+    film_y = outer_border
 
     # How many sprocket holes fit per frame cell
     perf_count = max(1, int((cell_w - perf_gap) / (perf_w + perf_gap)))
@@ -129,29 +136,34 @@ def _build_filmstrip_svg(frame_paths: list[str]) -> str:
     parts: list[str] = []
     parts.append(
         f'<svg xmlns="http://www.w3.org/2000/svg" '
-        f'width="{total_w}" height="{strip_h}" '
-        f'viewBox="0 0 {total_w} {strip_h}">'
+        f'width="{canvas_w}" height="{canvas_h}" '
+        f'viewBox="0 0 {canvas_w} {canvas_h}">'
+    )
+
+    # White canvas background (visible outer border around the film).
+    parts.append(
+        f'<rect width="{canvas_w}" height="{canvas_h}" fill="#fff"/>'
     )
 
     # Background strip — dark brown film base
     parts.append(
-        f'<rect width="{total_w}" height="{strip_h}" fill="#2a2520"/>'
+        f'<rect x="{film_x}" y="{film_y}" width="{film_w}" height="{film_h}" fill="#2a2520"/>'
     )
     # Subtle edge lines along top and bottom of the strip
     parts.append(
-        f'<rect x="0" y="0" width="{total_w}" height="2" fill="#3a3530"/>'
+        f'<rect x="{film_x}" y="{film_y}" width="{film_w}" height="2" fill="#3a3530"/>'
     )
     parts.append(
-        f'<rect x="0" y="{strip_h - 2}" width="{total_w}" height="2" fill="#3a3530"/>'
+        f'<rect x="{film_x}" y="{film_y + film_h - 2}" width="{film_w}" height="2" fill="#3a3530"/>'
     )
 
     for i, (data_uri, orig_w, orig_h) in enumerate(encoded):
-        x_off = i * (cell_w + cell_gap)
+        x_off = film_x + i * (cell_w + cell_gap)
 
         # --- Sprocket holes (top band) ---
         perf_start_x = x_off + (cell_w - perf_total) / 2
-        top_perf_y = (perf_band - perf_h) / 2
-        bot_perf_y = strip_h - perf_band + (perf_band - perf_h) / 2
+        top_perf_y = film_y + (perf_band - perf_h) / 2
+        bot_perf_y = film_y + film_h - perf_band + (perf_band - perf_h) / 2
         for j in range(perf_count):
             px = perf_start_x + j * (perf_w + perf_gap)
             parts.append(
@@ -167,7 +179,7 @@ def _build_filmstrip_svg(frame_paths: list[str]) -> str:
 
         # --- Frame area ---
         fx = x_off + frame_pad
-        fy = perf_band + frame_pad
+        fy = film_y + perf_band + frame_pad
 
         # Thin bright border around the image (exposure window)
         parts.append(
