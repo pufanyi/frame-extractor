@@ -36,9 +36,12 @@
     font-size: 0.95rem;
   }
   #video { width: 100%; background: #fff; }
+  .btn-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
   button { padding: 0.6rem 1.5rem; background: #2563eb; color: #fff; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; }
   button:disabled { background: #93b4f5; cursor: not-allowed; }
   button:hover:not(:disabled) { background: #1d4ed8; }
+  #batch-btn { background: #0f766e; }
+  #batch-btn:hover:not(:disabled) { background: #0d5f59; }
   #status { margin: 1rem 0; font-size: 0.95rem; }
   .error { color: #dc2626; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; margin-top: 1rem; }
@@ -58,15 +61,18 @@
   <div class="form-group">
     <label for="video">Upload Video (mp4 / mov / webm / mkv)</label>
     <div class="drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Drag and drop video file">
-      <p id="drop-hint">Drag video here, or click to choose file.</p>
-      <input type="file" id="video" accept=".mp4,.mov,.webm,.mkv" required>
+      <p id="drop-hint">Drag one or more videos here, or click to choose files.</p>
+      <input type="file" id="video" accept=".mp4,.mov,.webm,.mkv" multiple required>
     </div>
   </div>
   <div class="form-group">
     <label for="n">Number of Frames to Extract</label>
     <input type="number" id="n" min="1" value="10" required>
   </div>
-  <button type="submit" id="btn">Extract Frames</button>
+  <div class="btn-row">
+    <button type="submit" id="btn">Extract Frames</button>
+    <button type="button" id="batch-btn">Batch Export SVG ZIP</button>
+  </div>
 </form>
 <div id="status"></div>
 <div id="export-bar">
@@ -82,13 +88,15 @@ const status = document.getElementById("status");
 const grid = document.getElementById("grid");
 const exportBar = document.getElementById("export-bar");
 const exportBtn = document.getElementById("export-btn");
+const batchBtn = document.getElementById("batch-btn");
 const selCount = document.getElementById("sel-count");
 const videoInput = document.getElementById("video");
 const dropZone = document.getElementById("drop-zone");
 const dropHint = document.getElementById("drop-hint");
+const nInput = document.getElementById("n");
 
 let frameSrcs = []; // all frame paths from last extraction
-const defaultDropHint = "Drag video here, or click to choose file.";
+const defaultDropHint = "Drag one or more videos here, or click to choose files.";
 
 function isSupportedVideo(file) {
   if (!file) return false;
@@ -96,15 +104,23 @@ function isSupportedVideo(file) {
   return /\.(mp4|mov|webm|mkv)$/i.test(file.name);
 }
 
-function setVideoFile(file) {
+function setVideoFiles(files) {
   const dt = new DataTransfer();
-  dt.items.add(file);
+  files.forEach((file) => dt.items.add(file));
   videoInput.files = dt.files;
-  dropHint.textContent = `Selected: ${file.name}`;
+  resetDropHint();
 }
 
 function resetDropHint() {
-  dropHint.textContent = videoInput.files.length ? `Selected: ${videoInput.files[0].name}` : defaultDropHint;
+  if (!videoInput.files.length) {
+    dropHint.textContent = defaultDropHint;
+    return;
+  }
+  if (videoInput.files.length === 1) {
+    dropHint.textContent = `Selected: ${videoInput.files[0].name}`;
+    return;
+  }
+  dropHint.textContent = `Selected: ${videoInput.files.length} videos`;
 }
 
 ["dragenter", "dragover"].forEach((evt) => {
@@ -124,13 +140,14 @@ function resetDropHint() {
 });
 
 dropZone.addEventListener("drop", (e) => {
-  const file = e.dataTransfer?.files?.[0];
-  if (!file) return;
-  if (!isSupportedVideo(file)) {
-    showError("Please drop a valid video file (.mp4, .mov, .webm, .mkv).");
+  const files = Array.from(e.dataTransfer?.files || []);
+  if (!files.length) return;
+  const invalid = files.find((f) => !isSupportedVideo(f));
+  if (invalid) {
+    showError(`Unsupported file: ${invalid.name}. Allowed: .mp4, .mov, .webm, .mkv`);
     return;
   }
-  setVideoFile(file);
+  setVideoFiles(files);
   status.textContent = "";
   status.className = "";
 });
@@ -148,15 +165,16 @@ dropZone.addEventListener("keydown", (e) => {
 });
 
 videoInput.addEventListener("change", () => {
-  const file = videoInput.files[0];
-  if (!file) {
+  const files = Array.from(videoInput.files || []);
+  if (!files.length) {
     resetDropHint();
     return;
   }
-  if (!isSupportedVideo(file)) {
+  const invalid = files.find((f) => !isSupportedVideo(f));
+  if (invalid) {
     videoInput.value = "";
     resetDropHint();
-    showError("Please select a valid video file (.mp4, .mov, .webm, .mkv).");
+    showError(`Unsupported file: ${invalid.name}. Allowed: .mp4, .mov, .webm, .mkv`);
     return;
   }
   resetDropHint();
@@ -166,8 +184,6 @@ videoInput.addEventListener("change", () => {
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const nInput = document.getElementById("n");
-
   if (!videoInput.files.length) { showError("Please select a video file."); return; }
   const n = parseInt(nInput.value, 10);
   if (!n || n < 1) { showError("Number of frames must be a positive integer."); return; }
@@ -177,7 +193,10 @@ form.addEventListener("submit", async (e) => {
   fd.append("n", n);
 
   btn.disabled = true;
-  status.textContent = "Uploading and extracting frames...";
+  batchBtn.disabled = true;
+  status.textContent = videoInput.files.length > 1
+    ? `Using first video (${videoInput.files[0].name}) to extract frames...`
+    : "Uploading and extracting frames...";
   status.className = "";
   grid.innerHTML = "";
   exportBar.style.display = "none";
@@ -223,6 +242,49 @@ form.addEventListener("submit", async (e) => {
     showError("Request failed: " + err.message);
   } finally {
     btn.disabled = false;
+    batchBtn.disabled = false;
+  }
+});
+
+batchBtn.addEventListener("click", async () => {
+  if (!videoInput.files.length) { showError("Please select at least one video file."); return; }
+  const n = parseInt(nInput.value, 10);
+  if (!n || n < 1) { showError("Number of frames must be a positive integer."); return; }
+
+  const fd = new FormData();
+  Array.from(videoInput.files).forEach((file) => fd.append("videos", file));
+  fd.append("n", n);
+
+  btn.disabled = true;
+  batchBtn.disabled = true;
+  exportBar.style.display = "none";
+  grid.innerHTML = "";
+  frameSrcs = [];
+  status.textContent = `Processing ${videoInput.files.length} video(s) and generating SVG ZIP...`;
+  status.className = "";
+
+  try {
+    const res = await fetch("/batch-filmstrip", { method: "POST", body: fd });
+    if (!res.ok) {
+      const data = await res.json();
+      showError(data.detail || "Batch export failed");
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "filmstrips.zip";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    status.textContent = `Done: generated ${videoInput.files.length} SVG file(s) in filmstrips.zip`;
+  } catch (err) {
+    showError("Batch export failed: " + err.message);
+  } finally {
+    btn.disabled = false;
+    batchBtn.disabled = false;
   }
 });
 
@@ -274,6 +336,7 @@ function showError(msg) {
   status.textContent = msg;
   status.className = "error";
   btn.disabled = false;
+  batchBtn.disabled = false;
 }
 </script>
 </body>

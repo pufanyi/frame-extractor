@@ -18,9 +18,9 @@ Then open http://localhost:8000 in your browser.
 
 ## Usage
 
-1. Select a video file (mp4 / mov / webm / mkv).
+1. Select one or more video files (mp4 / mov / webm / mkv).
 2. Enter the number of frames to extract (positive integer).
-3. Click **Extract Frames**.
+3. Click **Extract Frames** to preview and select frames from the first selected video.
 4. The extracted frames are displayed in a grid.
 
 ### Export Filmstrip SVG
@@ -33,6 +33,15 @@ After extracting frames you can export selected frames as a filmstrip-style SVG:
 4. The SVG is self-contained — no external dependencies — and works in any browser or vector editor.
 
 The layout adapts automatically to the number of selected frames (3–8 recommended, up to 20 supported).
+
+### Batch Export Multiple SVGs
+
+If you select multiple videos, you can export one filmstrip SVG per video in one go:
+
+1. Select/drag multiple videos.
+2. Set frame count `N`.
+3. Click **Batch Export SVG ZIP**.
+4. Download `filmstrips.zip` containing one `.svg` for each uploaded video.
 
 ## Tech Stack
 

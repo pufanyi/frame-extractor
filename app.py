@@ -3,6 +3,9 @@ import uuid
 import base64
 import shutil
 import tempfile
+import zipfile
+import io
+import re
 from pathlib import Path
 
 import cv2
@@ -14,6 +17,7 @@ from pydantic import BaseModel
 ALLOWED_EXTENSIONS = {".mp4", ".mov", ".webm", ".mkv"}
 FRAMES_DIR = Path("frames")
 FRAMES_DIR.mkdir(exist_ok=True)
+MAX_BATCH_VIDEOS = 20
 
 app = FastAPI()
 app.mount("/frames", StaticFiles(directory=str(FRAMES_DIR)), name="frames")
@@ -46,32 +50,46 @@ def extract_frames(video_path: str, n: int, output_dir: Path) -> list[str]:
     return filenames
 
 
-@app.post("/extract")
-async def extract(video: UploadFile = File(...), n: int = Form(...)):
-    # Validate extension
-    ext = Path(video.filename or "").suffix.lower()
+def _validate_video_extension(filename: str | None) -> str:
+    ext = Path(filename or "").suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=f"Unsupported format '{ext}'. Allowed: {', '.join(ALLOWED_EXTENSIONS)}")
+        allowed = ", ".join(sorted(ALLOWED_EXTENSIONS))
+        raise HTTPException(status_code=400, detail=f"Unsupported format '{ext}'. Allowed: {allowed}")
+    return ext
 
-    # Validate N
-    if n < 1:
-        raise HTTPException(status_code=400, detail="Number of frames must be a positive integer.")
 
-    # Save upload to temp file
-    job_id = uuid.uuid4().hex[:12]
-    output_dir = FRAMES_DIR / job_id
-    output_dir.mkdir(parents=True, exist_ok=True)
+def _safe_svg_stem(filename: str | None, idx: int) -> str:
+    stem = Path(filename or "").stem.strip()
+    if not stem:
+        stem = f"video_{idx:02d}"
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._-")
+    return stem or f"video_{idx:02d}"
 
+
+def _extract_upload(video: UploadFile, n: int, output_dir: Path) -> list[str]:
+    ext = _validate_video_extension(video.filename)
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
             tmp_path = tmp.name
             shutil.copyfileobj(video.file, tmp)
-
         filenames = extract_frames(tmp_path, n, output_dir)
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
+    return filenames
+
+
+@app.post("/extract")
+async def extract(video: UploadFile = File(...), n: int = Form(...)):
+    if n < 1:
+        raise HTTPException(status_code=400, detail="Number of frames must be a positive integer.")
+
+    job_id = uuid.uuid4().hex[:12]
+    output_dir = FRAMES_DIR / job_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    filenames = _extract_upload(video, n, output_dir)
 
     if not filenames:
         raise HTTPException(status_code=500, detail="Failed to extract any frames from the video.")
@@ -217,6 +235,48 @@ async def filmstrip(req: FilmstripRequest):
     svg_content = _build_filmstrip_svg(req.frames)
     return Response(content=svg_content, media_type="image/svg+xml",
                     headers={"Content-Disposition": "attachment; filename=filmstrip.svg"})
+
+
+@app.post("/batch-filmstrip")
+async def batch_filmstrip(videos: list[UploadFile] = File(...), n: int = Form(...)):
+    if n < 1:
+        raise HTTPException(status_code=400, detail="Number of frames must be a positive integer.")
+    if not videos:
+        raise HTTPException(status_code=400, detail="No videos uploaded.")
+    if len(videos) > MAX_BATCH_VIDEOS:
+        raise HTTPException(status_code=400, detail=f"Too many videos (max {MAX_BATCH_VIDEOS}).")
+
+    zip_buffer = io.BytesIO()
+    used_names: set[str] = set()
+
+    with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for idx, video in enumerate(videos, start=1):
+            job_id = uuid.uuid4().hex[:12]
+            output_dir = FRAMES_DIR / job_id
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            filenames = _extract_upload(video, n, output_dir)
+            if not filenames:
+                raise HTTPException(status_code=500, detail=f"Failed to extract frames from: {video.filename or f'video {idx}'}")
+
+            frame_paths = [f"/frames/{job_id}/{f}" for f in filenames]
+            svg_content = _build_filmstrip_svg(frame_paths)
+
+            base_stem = _safe_svg_stem(video.filename, idx)
+            svg_name = f"{base_stem}.svg"
+            suffix = 2
+            while svg_name in used_names:
+                svg_name = f"{base_stem}_{suffix}.svg"
+                suffix += 1
+            used_names.add(svg_name)
+            zf.writestr(svg_name, svg_content)
+
+    zip_buffer.seek(0)
+    return Response(
+        content=zip_buffer.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=filmstrips.zip"},
+    )
 
 
 @app.get("/", response_class=HTMLResponse)
