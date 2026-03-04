@@ -73,7 +73,7 @@
 <div id="status"></div>
 <div id="export-bar">
   <button id="export-btn" type="button">Export Filmstrip SVG</button>
-  <button id="download-all-btn" type="button">Download All Images</button>
+  <button id="download-all-btn" type="button">Download Selected Images</button>
   <span id="sel-count">0 frames selected</span>
 </div>
 <div class="grid" id="grid"></div>
@@ -196,7 +196,7 @@ form.addEventListener("submit", async (e) => {
     if (!res.ok) { showError(data.detail || "Unknown error"); return; }
 
     frameSrcs = data.frames;
-    status.textContent = `Extracted ${data.frames.length} frames. Select some for SVG, or click Download All Images.`;
+    status.textContent = `Extracted ${data.frames.length} frames. Select some, then export SVG or download selected images.`;
 
     data.frames.forEach((src) => {
       const item = document.createElement("div");
@@ -225,7 +225,6 @@ form.addEventListener("submit", async (e) => {
     });
 
     exportBar.style.display = "flex";
-    downloadAllBtn.disabled = data.frames.length === 0;
     updateSelectionCount();
   } catch (err) {
     showError("Request failed: " + err.message);
@@ -241,14 +240,16 @@ function getFilenameFromPath(src, idx) {
 }
 
 downloadAllBtn.addEventListener("click", async () => {
-  if (!frameSrcs.length) { showError("No extracted images to download."); return; }
+  const checked = grid.querySelectorAll('input[type="checkbox"]:checked');
+  const selected = Array.from(checked).map(cb => cb.dataset.src);
+  if (selected.length === 0) { showError("Please select at least one image to download."); return; }
   downloadAllBtn.disabled = true;
   exportBtn.disabled = true;
-  status.textContent = `Downloading ${frameSrcs.length} image(s)...`;
+  status.textContent = `Downloading ${selected.length} selected image(s)...`;
   status.className = "";
   try {
-    for (let i = 0; i < frameSrcs.length; i++) {
-      const src = frameSrcs[i];
+    for (let i = 0; i < selected.length; i++) {
+      const src = selected[i];
       const a = document.createElement("a");
       a.href = src;
       a.download = getFilenameFromPath(src, i);
@@ -257,7 +258,7 @@ downloadAllBtn.addEventListener("click", async () => {
       a.remove();
       await new Promise((resolve) => setTimeout(resolve, 80));
     }
-    status.textContent = `Started downloading ${frameSrcs.length} image(s).`;
+    status.textContent = `Started downloading ${selected.length} selected image(s).`;
   } catch (err) {
     showError("Download failed: " + err.message);
   } finally {
@@ -271,6 +272,7 @@ function updateSelectionCount() {
   const count = checked.length;
   selCount.textContent = `${count} frame${count !== 1 ? "s" : ""} selected`;
   exportBtn.disabled = count === 0;
+  downloadAllBtn.disabled = count === 0;
 }
 
 exportBtn.addEventListener("click", async () => {

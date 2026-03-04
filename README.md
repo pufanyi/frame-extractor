@@ -34,9 +34,9 @@ After extracting frames you can export selected frames as a filmstrip-style SVG:
 
 The layout adapts automatically to the number of selected frames (3–8 recommended, up to 20 supported).
 
-### Download All Extracted Images
+### Download Selected Images
 
-After extraction, click **Download All Images** to download every extracted frame directly (no ZIP packaging).
+After extraction, select the frames you want, then click **Download Selected Images** to download only the selected frames directly (no ZIP packaging).
 
 Note: your browser may ask permission for multiple file downloads.
 
