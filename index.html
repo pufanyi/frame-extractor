@@ -50,6 +50,8 @@
   #export-bar span { font-size: 0.9rem; color: #555; }
   #export-btn { background: #16a34a; }
   #export-btn:hover:not(:disabled) { background: #15803d; }
+  #export-png-btn { background: #8b5cf6; }
+  #export-png-btn:hover:not(:disabled) { background: #7c3aed; }
   #download-all-btn { background: #b45309; }
   #download-all-btn:hover:not(:disabled) { background: #92400e; }
 </style>
@@ -78,12 +80,33 @@
 </div>
 <div class="grid" id="grid"></div>
 
+<div id="preview-section" style="display: none; margin-top: 2rem; padding: 1rem; background: #fff; border: 1px dashed #ccc; border-radius: 8px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <h3 style="color: #333;">Horizontal PNG Preview (Right-click to copy/save)</h3>
+    <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: normal; cursor: pointer;">
+      <input type="checkbox" id="add-border-chk" style="width: auto;" checked> Add Thin Gray Separators
+    </label>
+  </div>
+  <div id="preview-loading" style="display: none; color: #666; font-style: italic; margin-bottom: 1rem;">Generating preview...</div>
+  <div style="width: 100%; border: 1px solid #eee; background: #fafafa; padding: 1rem; border-radius: 4px; display: flex; justify-content: center; align-items: center;">
+    <img id="preview-img" style="max-width: 100%; max-height: 400px; object-fit: contain; display: block;" />
+  </div>
+</div>
+
 <script>
 const form = document.getElementById("form");
 const btn = document.getElementById("btn");
 const status = document.getElementById("status");
 const grid = document.getElementById("grid");
+const previewSection = document.getElementById("preview-section");
+const previewImg = document.getElementById("preview-img");
+const previewLoading = document.getElementById("preview-loading");
+const addBorderChk = document.getElementById("add-border-chk");
 const exportBar = document.getElementById("export-bar");
+
+let currentPreviewUrl = null;
+let previewAbortController = null;
+
 const exportBtn = document.getElementById("export-btn");
 const downloadAllBtn = document.getElementById("download-all-btn");
 const selCount = document.getElementById("sel-count");
@@ -233,6 +256,60 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
+addBorderChk.addEventListener("change", () => {
+  updatePreview();
+});
+
+async function updatePreview() {
+  const checked = grid.querySelectorAll('input[type="checkbox"]:checked');
+  const selected = Array.from(checked).map(cb => cb.dataset.src);
+  
+  if (selected.length === 0) {
+    previewSection.style.display = "none";
+    if (currentPreviewUrl) {
+      URL.revokeObjectURL(currentPreviewUrl);
+      currentPreviewUrl = null;
+    }
+    previewImg.src = "";
+    return;
+  }
+
+  previewSection.style.display = "block";
+  previewLoading.style.display = "block";
+  previewImg.style.opacity = "0.5";
+
+  if (previewAbortController) {
+    previewAbortController.abort();
+  }
+  previewAbortController = new AbortController();
+
+  try {
+    const res = await fetch("/export-png", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ frames: selected, add_border: addBorderChk.checked }),
+      signal: previewAbortController.signal,
+    });
+    if (!res.ok) {
+        throw new Error("Failed to generate preview");
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    if (currentPreviewUrl) {
+      URL.revokeObjectURL(currentPreviewUrl);
+    }
+    currentPreviewUrl = url;
+    previewImg.src = currentPreviewUrl;
+  } catch (err) {
+    if (err.name !== "AbortError") {
+        console.error("Preview generation error:", err);
+    }
+  } finally {
+    previewLoading.style.display = "none";
+    previewImg.style.opacity = "1";
+  }
+}
+
 function getFilenameFromPath(src, idx) {
   const clean = src.split("?")[0];
   const base = clean.substring(clean.lastIndexOf("/") + 1);
@@ -245,6 +322,7 @@ downloadAllBtn.addEventListener("click", async () => {
   if (selected.length === 0) { showError("Please select at least one image to download."); return; }
   downloadAllBtn.disabled = true;
   exportBtn.disabled = true;
+  exportPngBtn.disabled = true;
   status.textContent = `Downloading ${selected.length} selected image(s)...`;
   status.className = "";
   try {
@@ -273,6 +351,7 @@ function updateSelectionCount() {
   selCount.textContent = `${count} frame${count !== 1 ? "s" : ""} selected`;
   exportBtn.disabled = count === 0;
   downloadAllBtn.disabled = count === 0;
+  updatePreview();
 }
 
 exportBtn.addEventListener("click", async () => {
@@ -308,7 +387,6 @@ exportBtn.addEventListener("click", async () => {
   } finally {
     exportBtn.disabled = false;
     exportBtn.textContent = "Export Filmstrip SVG";
-    updateSelectionCount();
   }
 });
 

@@ -99,6 +99,7 @@ async def extract(video: UploadFile = File(...), n: int = Form(...)):
 
 class FilmstripRequest(BaseModel):
     frames: list[str]  # e.g. ["/frames/abc123/frame_000000.jpg", ...]
+    add_border: bool = False
 
 
 def _build_filmstrip_svg(frame_paths: list[str]) -> str:
@@ -238,6 +239,57 @@ async def filmstrip(req: FilmstripRequest):
     svg_content = _build_filmstrip_svg(req.frames)
     return Response(content=svg_content, media_type="image/svg+xml",
                     headers={"Content-Disposition": "attachment; filename=filmstrip.svg"})
+
+
+@app.post("/export-png")
+async def export_png(req: FilmstripRequest):
+    if not req.frames:
+        raise HTTPException(status_code=400, detail="No frames selected.")
+    
+    images = []
+    for fp in req.frames:
+        rel = fp.lstrip("/")
+        if rel.startswith("frames/"):
+            rel = rel[len("frames/"):]
+        abs_path = FRAMES_DIR / rel
+        if not abs_path.is_file():
+            raise HTTPException(status_code=404, detail=f"Frame not found: {fp}")
+        img = cv2.imread(str(abs_path))
+        if img is None:
+            raise HTTPException(status_code=400, detail=f"Cannot read image: {fp}")
+        images.append(img)
+
+    if not images:
+        raise HTTPException(status_code=400, detail="No valid images to export.")
+
+    target_h = images[0].shape[0]
+    resized_images = []
+    
+    # We want a 1px gray border on all sides for each frame if add_border is True
+    # (or perhaps just right/left to act as separator, but all sides is consistent and fine)
+    for img in images:
+        h, w = img.shape[:2]
+        if h != target_h:
+            new_w = int(w * target_h / h)
+            img = cv2.resize(img, (new_w, target_h))
+            
+        if req.add_border:
+            # Add a 1px thin gray border around each sub-image
+            img = cv2.copyMakeBorder(
+                img, 
+                1, 1, 1, 1, 
+                cv2.BORDER_CONSTANT, 
+                value=(200, 200, 200) # Light gray in BGR
+            )
+            
+        resized_images.append(img)
+
+    stitched = cv2.hconcat(resized_images)
+
+    _, png_buf = cv2.imencode(".png", stitched)
+
+    return Response(content=png_buf.tobytes(), media_type="image/png",
+                    headers={"Content-Disposition": "attachment; filename=horizontal_grid.png"})
 
 
 @app.post("/batch-filmstrip")
