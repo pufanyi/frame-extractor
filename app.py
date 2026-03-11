@@ -286,7 +286,8 @@ async def export_png(req: FilmstripRequest):
 
     stitched = cv2.hconcat(resized_images)
 
-    _, png_buf = cv2.imencode(".png", stitched)
+    # Use PNG compression level 0 (no compression, maximum quality/lossless)
+    _, png_buf = cv2.imencode(".png", stitched, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
     return Response(content=png_buf.tobytes(), media_type="image/png",
                     headers={"Content-Disposition": "attachment; filename=horizontal_grid.png"})
