@@ -184,7 +184,8 @@ def _build_filmstrip_svg(frame_paths: list[str]) -> str:
     # Background strip — dark brown film base
     parts.append(
         f'<rect x="{film_x}" y="{film_y}" width="{film_w}" height="{film_h}" '
-        f'fill="#2a2520" mask="url(#film-cutouts)"/>'
+        # f'fill="#2a2520" mask="url(#film-cutouts)"/>'
+        f'fill="#ded8f6" mask="url(#film-cutouts)"/>'
     )
     # Subtle edge lines along top and bottom of the strip
     parts.append(
