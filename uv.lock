@@ -567,7 +567,7 @@ wheels = [
 ]
 
 [[package]]
-name = "vbvr-frame-extractor"
+name = "video-frame-extractor"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
