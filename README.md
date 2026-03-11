@@ -1,3 +1,13 @@
+---
+title: Video Frame Extractor
+emoji: 🎬
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Video Frame Extractor
 
 A minimal web app that uploads a video and uniformly extracts N frames from it.
@@ -8,13 +18,22 @@ A minimal web app that uploads a video and uniformly extracts N frames from it.
 - [uv](https://docs.astral.sh/uv/)
 - FFmpeg codecs (usually pre-installed; needed by OpenCV for some formats)
 
-## Run
+## Run Locally
 
 ```bash
 uv run uvicorn app:app --reload --port 8000
 ```
 
 Then open http://localhost:8000 in your browser.
+
+## Run with Docker
+
+```bash
+docker build -t video-frame-extractor .
+docker run -p 7860:7860 video-frame-extractor
+```
+
+Then open http://localhost:7860 in your browser.
 
 ## Usage
 
