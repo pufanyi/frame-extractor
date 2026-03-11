@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 
 import cv2
+import numpy as np
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -100,6 +101,89 @@ async def extract(video: UploadFile = File(...), n: int = Form(...)):
 class FilmstripRequest(BaseModel):
     frames: list[str]  # e.g. ["/frames/abc123/frame_000000.jpg", ...]
     add_border: bool = False
+
+
+class ExportConfig(BaseModel):
+    frames: list[str]
+    format: str = "png"  # svg, png, jpg
+    add_border: bool = True
+    border_width: int = 1
+    border_color: str = "#c8c8c8"
+    spacing: int = 0
+    background_color: str = "#ffffff"
+    quality: int = 90  # JPG only
+
+
+def _hex_to_bgr(hex_color: str) -> tuple[int, int, int]:
+    """Convert hex color like '#c8c8c8' to BGR tuple for OpenCV."""
+    try:
+        h = hex_color.lstrip("#")
+        if len(h) != 6:
+            raise ValueError
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        return (b, g, r)
+    except (ValueError, IndexError):
+        return (200, 200, 200)
+
+
+def _load_frame_images(frame_paths: list[str]) -> list:
+    """Load frame images from paths, returning list of cv2 images."""
+    images = []
+    for fp in frame_paths:
+        rel = fp.lstrip("/")
+        if rel.startswith("frames/"):
+            rel = rel[len("frames/"):]
+        abs_path = FRAMES_DIR / rel
+        if not abs_path.is_file():
+            raise HTTPException(status_code=404, detail=f"Frame not found: {fp}")
+        img = cv2.imread(str(abs_path))
+        if img is None:
+            raise HTTPException(status_code=400, detail=f"Cannot read image: {fp}")
+        images.append(img)
+    if not images:
+        raise HTTPException(status_code=400, detail="No valid images.")
+    return images
+
+
+def _build_raster_export(images: list, config: ExportConfig) -> tuple[bytes, str, str]:
+    """Build horizontal grid image. Returns (bytes, media_type, file_extension)."""
+    target_h = images[0].shape[0]
+    bw = max(0, min(config.border_width, 10))
+    spacing = max(0, min(config.spacing, 50))
+    quality = max(1, min(config.quality, 100))
+    border_bgr = _hex_to_bgr(config.border_color)
+    bg_bgr = _hex_to_bgr(config.background_color)
+
+    processed = []
+    for img in images:
+        h, w = img.shape[:2]
+        if h != target_h:
+            new_w = int(w * target_h / h)
+            img = cv2.resize(img, (new_w, target_h))
+        if config.add_border and bw > 0:
+            img = cv2.copyMakeBorder(
+                img, bw, bw, bw, bw, cv2.BORDER_CONSTANT, value=border_bgr
+            )
+        processed.append(img)
+
+    if spacing > 0 and len(processed) > 1:
+        final_h = processed[0].shape[0]
+        spacer = np.full((final_h, spacing, 3), bg_bgr, dtype=np.uint8)
+        parts = [processed[0]]
+        for p in processed[1:]:
+            parts.append(spacer)
+            parts.append(p)
+        stitched = cv2.hconcat(parts)
+    else:
+        stitched = cv2.hconcat(processed)
+
+    fmt = config.format.lower()
+    if fmt in ("jpg", "jpeg"):
+        _, buf = cv2.imencode(".jpg", stitched, [cv2.IMWRITE_JPEG_QUALITY, quality])
+        return buf.tobytes(), "image/jpeg", "jpg"
+    else:
+        _, buf = cv2.imencode(".png", stitched, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        return buf.tobytes(), "image/png", "png"
 
 
 def _build_filmstrip_svg(frame_paths: list[str]) -> str:
@@ -291,6 +375,34 @@ async def export_png(req: FilmstripRequest):
 
     return Response(content=png_buf.tobytes(), media_type="image/png",
                     headers={"Content-Disposition": "attachment; filename=horizontal_grid.png"})
+
+
+@app.post("/export")
+async def unified_export(req: ExportConfig):
+    if not req.frames:
+        raise HTTPException(status_code=400, detail="No frames selected.")
+    if len(req.frames) > 20:
+        raise HTTPException(status_code=400, detail="Too many frames (max 20).")
+
+    fmt = req.format.lower()
+    if fmt not in ("svg", "png", "jpg", "jpeg"):
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {req.format}")
+
+    if fmt == "svg":
+        svg_content = _build_filmstrip_svg(req.frames)
+        return Response(
+            content=svg_content,
+            media_type="image/svg+xml",
+            headers={"Content-Disposition": "attachment; filename=filmstrip.svg"},
+        )
+
+    images = _load_frame_images(req.frames)
+    data, media_type, ext = _build_raster_export(images, req)
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename=export.{ext}"},
+    )
 
 
 @app.post("/batch-filmstrip")

@@ -42,20 +42,29 @@ Then open http://localhost:7860 in your browser.
 3. Click **Extract Frames**.
 4. The extracted frames are displayed in a grid.
 
-### Export Filmstrip SVG
+### Export Options
 
-After extracting frames you can export selected frames as a filmstrip-style SVG:
+After extracting frames, select the ones you want and use the **Export Options** panel to configure and download:
 
-1. Click on frames (or their checkboxes) to select the ones you want.
-2. Click **Export Filmstrip SVG** (green button).
-3. A `.svg` file will be downloaded. It contains a dark film-strip with sprocket holes and the selected frames embedded as base64 PNG images.
-4. The SVG is self-contained — no external dependencies — and works in any browser or vector editor.
+**Supported formats:**
+
+- **PNG** — Lossless horizontal grid of selected frames.
+- **JPG** — Lossy horizontal grid with configurable quality (1–100).
+- **SVG (Filmstrip)** — Self-contained filmstrip with sprocket holes and embedded images. Works in any browser or vector editor.
+
+**Configurable options (PNG / JPG):**
+
+- **Frame borders** — Toggle on/off, with adjustable width (1–10 px) and color.
+- **Spacing** — Gap between frames (0–50 px) with configurable background color.
+- **Quality** — JPG compression quality slider (1–100).
+
+A live preview updates automatically as you change options. Right-click the preview to copy or save directly.
 
 The layout adapts automatically to the number of selected frames (3–8 recommended, up to 20 supported).
 
-### Download Selected Images
+### Download Selected Frames
 
-After extraction, select the frames you want, then click **Download Selected Images** to download only the selected frames directly (no ZIP packaging).
+Use **Download Selected Frames** to download the original extracted frame images individually (no ZIP packaging).
 
 Note: your browser may ask permission for multiple file downloads.
 

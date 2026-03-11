@@ -46,14 +46,124 @@
   .grid-item img { width: 100%; border-radius: 4px; border: 1px solid #ddd; display: block; }
   .grid-item input[type="checkbox"] { position: absolute; top: 8px; left: 8px; width: 20px; height: 20px; accent-color: #2563eb; cursor: pointer; }
   .grid-item.selected img { border: 3px solid #2563eb; border-radius: 4px; }
-  #export-bar { margin-top: 1rem; display: none; align-items: center; gap: 1rem; }
-  #export-bar span { font-size: 0.9rem; color: #555; }
-  #export-btn { background: #16a34a; }
-  #export-btn:hover:not(:disabled) { background: #15803d; }
-  #export-png-btn { background: #8b5cf6; }
-  #export-png-btn:hover:not(:disabled) { background: #7c3aed; }
-  #download-all-btn { background: #b45309; }
-  #download-all-btn:hover:not(:disabled) { background: #92400e; }
+
+  /* Export Panel */
+  .export-panel {
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    display: none;
+  }
+  .export-panel h3 {
+    margin-bottom: 1rem;
+    font-size: 1.05rem;
+    color: #1e293b;
+  }
+  .export-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+  .export-group {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .export-group label {
+    font-weight: normal;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-bottom: 0;
+  }
+  .export-group select,
+  .export-group input[type="number"] {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+  .export-group input[type="number"] { width: 70px; }
+  .export-group input[type="color"] {
+    width: 32px;
+    height: 28px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 1px;
+    cursor: pointer;
+  }
+  .export-group input[type="range"] { width: 100px; }
+  .export-group input[type="checkbox"] { width: auto; }
+  #svg-note {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 0.5rem;
+    display: none;
+  }
+  .export-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #f0f0f0;
+  }
+  .export-actions span {
+    font-size: 0.9rem;
+    color: #555;
+  }
+  #download-export-btn { background: #2563eb; }
+  #download-export-btn:hover:not(:disabled) { background: #1d4ed8; }
+  #download-frames-btn { background: #b45309; }
+  #download-frames-btn:hover:not(:disabled) { background: #92400e; }
+
+  /* Preview */
+  .preview-section {
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    display: none;
+  }
+  .preview-section h3 {
+    margin-bottom: 0.75rem;
+    font-size: 1.05rem;
+    color: #1e293b;
+  }
+  .preview-hint {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-top: 0.5rem;
+  }
+  #preview-loading {
+    display: none;
+    color: #666;
+    font-style: italic;
+    margin-bottom: 0.5rem;
+  }
+  .preview-container {
+    width: 100%;
+    border: 1px solid #eee;
+    background: #fafafa;
+    padding: 1rem;
+    border-radius: 4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 80px;
+  }
+  #preview-img {
+    max-width: 100%;
+    max-height: 400px;
+    object-fit: contain;
+    display: block;
+  }
 </style>
 </head>
 <body>
@@ -73,24 +183,81 @@
   <button type="submit" id="btn">Extract Frames</button>
 </form>
 <div id="status"></div>
-<div id="export-bar">
-  <button id="export-btn" type="button">Export Filmstrip SVG</button>
-  <button id="download-all-btn" type="button">Download Selected Images</button>
-  <span id="sel-count">0 frames selected</span>
-</div>
 <div class="grid" id="grid"></div>
 
-<div id="preview-section" style="display: none; margin-top: 2rem; padding: 1rem; background: #fff; border: 1px dashed #ccc; border-radius: 8px;">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-    <h3 style="color: #333;">Horizontal PNG Preview (Right-click to copy/save)</h3>
-    <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: normal; cursor: pointer;">
-      <input type="checkbox" id="add-border-chk" style="width: auto;" checked> Add Thin Gray Separators
-    </label>
+<!-- Export Configuration Panel -->
+<div class="export-panel" id="export-panel">
+  <h3>Export Options</h3>
+
+  <div class="export-row">
+    <div class="export-group">
+      <label>Format
+        <select id="export-format">
+          <option value="png" selected>PNG</option>
+          <option value="jpg">JPG</option>
+          <option value="svg">SVG (Filmstrip)</option>
+        </select>
+      </label>
+    </div>
+    <div class="export-group" id="quality-group" style="display: none;">
+      <label>Quality
+        <input type="range" id="export-quality" min="1" max="100" value="90">
+        <span id="quality-value">90</span>
+      </label>
+    </div>
   </div>
-  <div id="preview-loading" style="display: none; color: #666; font-style: italic; margin-bottom: 1rem;">Generating preview...</div>
-  <div style="width: 100%; border: 1px solid #eee; background: #fafafa; padding: 1rem; border-radius: 4px; display: flex; justify-content: center; align-items: center;">
-    <img id="preview-img" style="max-width: 100%; max-height: 400px; object-fit: contain; display: block;" />
+
+  <p id="svg-note">SVG uses filmstrip styling with sprocket holes. Options below apply to PNG/JPG only.</p>
+
+  <div id="raster-options">
+    <div class="export-row">
+      <div class="export-group">
+        <label>
+          <input type="checkbox" id="add-border-chk" checked> Frame borders
+        </label>
+      </div>
+      <div class="export-group" id="border-config">
+        <label>Width
+          <input type="number" id="border-width" min="1" max="10" value="1">
+          px
+        </label>
+      </div>
+      <div class="export-group" id="border-color-group">
+        <label>Color
+          <input type="color" id="border-color" value="#c8c8c8">
+        </label>
+      </div>
+    </div>
+    <div class="export-row">
+      <div class="export-group">
+        <label>Spacing
+          <input type="number" id="frame-spacing" min="0" max="50" value="0">
+          px
+        </label>
+      </div>
+      <div class="export-group" id="bg-color-group">
+        <label>Background
+          <input type="color" id="bg-color" value="#ffffff">
+        </label>
+      </div>
+    </div>
   </div>
+
+  <div class="export-actions">
+    <button id="download-export-btn" type="button">Download PNG</button>
+    <button id="download-frames-btn" type="button">Download Selected Frames</button>
+    <span id="sel-count">0 frames selected</span>
+  </div>
+</div>
+
+<!-- Live Preview -->
+<div class="preview-section" id="preview-section">
+  <h3>Preview</h3>
+  <div id="preview-loading">Generating preview...</div>
+  <div class="preview-container">
+    <img id="preview-img" alt="Export preview" />
+  </div>
+  <p class="preview-hint">Right-click to copy or save the preview image.</p>
 </div>
 
 <script>
@@ -98,25 +265,41 @@ const form = document.getElementById("form");
 const btn = document.getElementById("btn");
 const status = document.getElementById("status");
 const grid = document.getElementById("grid");
+const exportPanel = document.getElementById("export-panel");
 const previewSection = document.getElementById("preview-section");
 const previewImg = document.getElementById("preview-img");
 const previewLoading = document.getElementById("preview-loading");
-const addBorderChk = document.getElementById("add-border-chk");
-const exportBar = document.getElementById("export-bar");
-
-let currentPreviewUrl = null;
-let previewAbortController = null;
-
-const exportBtn = document.getElementById("export-btn");
-const downloadAllBtn = document.getElementById("download-all-btn");
-const selCount = document.getElementById("sel-count");
 const videoInput = document.getElementById("video");
 const dropZone = document.getElementById("drop-zone");
 const dropHint = document.getElementById("drop-hint");
 const nInput = document.getElementById("n");
 
-let frameSrcs = []; // all frame paths from last extraction
+// Export config elements
+const exportFormat = document.getElementById("export-format");
+const qualityGroup = document.getElementById("quality-group");
+const exportQuality = document.getElementById("export-quality");
+const qualityValue = document.getElementById("quality-value");
+const svgNote = document.getElementById("svg-note");
+const rasterOptions = document.getElementById("raster-options");
+const addBorderChk = document.getElementById("add-border-chk");
+const borderWidth = document.getElementById("border-width");
+const borderColor = document.getElementById("border-color");
+const borderConfig = document.getElementById("border-config");
+const borderColorGroup = document.getElementById("border-color-group");
+const frameSpacing = document.getElementById("frame-spacing");
+const bgColor = document.getElementById("bg-color");
+const bgColorGroup = document.getElementById("bg-color-group");
+const downloadExportBtn = document.getElementById("download-export-btn");
+const downloadFramesBtn = document.getElementById("download-frames-btn");
+const selCount = document.getElementById("sel-count");
+
+let frameSrcs = [];
+let currentPreviewUrl = null;
+let previewAbortController = null;
+let previewTimer = null;
 const defaultDropHint = "Drag a video here, or click to choose file.";
+
+// --- Utility ---
 
 function isSupportedVideo(file) {
   if (!file) return false;
@@ -138,6 +321,35 @@ function resetDropHint() {
   }
   dropHint.textContent = `Selected: ${videoInput.files[0].name}`;
 }
+
+function showError(msg) {
+  status.textContent = msg;
+  status.className = "error";
+  btn.disabled = false;
+}
+
+function getFilenameFromPath(src, idx) {
+  const clean = src.split("?")[0];
+  const base = clean.substring(clean.lastIndexOf("/") + 1);
+  return base || `frame_${String(idx + 1).padStart(3, "0")}.jpg`;
+}
+
+function getExportConfig() {
+  const checked = grid.querySelectorAll('input[type="checkbox"]:checked');
+  const frames = Array.from(checked).map(cb => cb.dataset.src);
+  return {
+    frames,
+    format: exportFormat.value,
+    add_border: addBorderChk.checked,
+    border_width: parseInt(borderWidth.value, 10) || 1,
+    border_color: borderColor.value,
+    spacing: parseInt(frameSpacing.value, 10) || 0,
+    background_color: bgColor.value,
+    quality: parseInt(exportQuality.value, 10) || 90,
+  };
+}
+
+// --- Drop zone ---
 
 ["dragenter", "dragover"].forEach((evt) => {
   dropZone.addEventListener(evt, (e) => {
@@ -196,6 +408,8 @@ videoInput.addEventListener("change", () => {
   status.className = "";
 });
 
+// --- Frame extraction ---
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!videoInput.files.length) { showError("Please select a video file."); return; }
@@ -210,7 +424,8 @@ form.addEventListener("submit", async (e) => {
   status.textContent = "Uploading and extracting frames...";
   status.className = "";
   grid.innerHTML = "";
-  exportBar.style.display = "none";
+  exportPanel.style.display = "none";
+  previewSection.style.display = "none";
   frameSrcs = [];
 
   try {
@@ -219,7 +434,7 @@ form.addEventListener("submit", async (e) => {
     if (!res.ok) { showError(data.detail || "Unknown error"); return; }
 
     frameSrcs = data.frames;
-    status.textContent = `Extracted ${data.frames.length} frames. Select some, then export SVG or download selected images.`;
+    status.textContent = `Extracted ${data.frames.length} frames. Select frames to configure and export.`;
 
     data.frames.forEach((src) => {
       const item = document.createElement("div");
@@ -247,7 +462,7 @@ form.addEventListener("submit", async (e) => {
       grid.appendChild(item);
     });
 
-    exportBar.style.display = "flex";
+    exportPanel.style.display = "block";
     updateSelectionCount();
   } catch (err) {
     showError("Request failed: " + err.message);
@@ -256,15 +471,65 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
-addBorderChk.addEventListener("change", () => {
-  updatePreview();
+// --- Export config reactivity ---
+
+function onFormatChange() {
+  const fmt = exportFormat.value;
+  const isSvg = fmt === "svg";
+  const isJpg = fmt === "jpg";
+
+  svgNote.style.display = isSvg ? "block" : "none";
+  rasterOptions.style.display = isSvg ? "none" : "block";
+  qualityGroup.style.display = isJpg ? "flex" : "none";
+
+  const labels = { png: "Download PNG", jpg: "Download JPG", svg: "Download SVG" };
+  downloadExportBtn.textContent = labels[fmt] || "Download";
+
+  schedulePreview();
+}
+
+function onBorderToggle() {
+  const on = addBorderChk.checked;
+  borderConfig.style.display = on ? "flex" : "none";
+  borderColorGroup.style.display = on ? "flex" : "none";
+  schedulePreview();
+}
+
+exportFormat.addEventListener("change", onFormatChange);
+addBorderChk.addEventListener("change", onBorderToggle);
+
+exportQuality.addEventListener("input", () => {
+  qualityValue.textContent = exportQuality.value;
+  schedulePreview();
 });
 
-async function updatePreview() {
+// All config inputs trigger preview update
+[borderWidth, borderColor, frameSpacing, bgColor].forEach(el => {
+  el.addEventListener("input", schedulePreview);
+});
+
+// --- Selection ---
+
+function updateSelectionCount() {
   const checked = grid.querySelectorAll('input[type="checkbox"]:checked');
-  const selected = Array.from(checked).map(cb => cb.dataset.src);
-  
-  if (selected.length === 0) {
+  const count = checked.length;
+  selCount.textContent = `${count} frame${count !== 1 ? "s" : ""} selected`;
+  downloadExportBtn.disabled = count === 0;
+  downloadFramesBtn.disabled = count === 0;
+  schedulePreview();
+}
+
+// --- Preview ---
+
+function schedulePreview() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(updatePreview, 300);
+}
+
+async function updatePreview() {
+  const config = getExportConfig();
+
+  if (config.frames.length === 0) {
     previewSection.style.display = "none";
     if (currentPreviewUrl) {
       URL.revokeObjectURL(currentPreviewUrl);
@@ -284,14 +549,14 @@ async function updatePreview() {
   previewAbortController = new AbortController();
 
   try {
-    const res = await fetch("/export-png", {
+    const res = await fetch("/export", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ frames: selected, add_border: addBorderChk.checked }),
+      body: JSON.stringify(config),
       signal: previewAbortController.signal,
     });
     if (!res.ok) {
-        throw new Error("Failed to generate preview");
+      throw new Error("Failed to generate preview");
     }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
@@ -302,7 +567,7 @@ async function updatePreview() {
     previewImg.src = currentPreviewUrl;
   } catch (err) {
     if (err.name !== "AbortError") {
-        console.error("Preview generation error:", err);
+      console.error("Preview generation error:", err);
     }
   } finally {
     previewLoading.style.display = "none";
@@ -310,19 +575,53 @@ async function updatePreview() {
   }
 }
 
-function getFilenameFromPath(src, idx) {
-  const clean = src.split("?")[0];
-  const base = clean.substring(clean.lastIndexOf("/") + 1);
-  return base || `frame_${String(idx + 1).padStart(3, "0")}.jpg`;
-}
+// --- Download export ---
 
-downloadAllBtn.addEventListener("click", async () => {
+downloadExportBtn.addEventListener("click", async () => {
+  const config = getExportConfig();
+  if (config.frames.length === 0) { showError("Please select at least one frame."); return; }
+
+  downloadExportBtn.disabled = true;
+  const origText = downloadExportBtn.textContent;
+  downloadExportBtn.textContent = "Generating...";
+
+  try {
+    const res = await fetch("/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      showError(data.detail || "Export failed");
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const ext = config.format === "svg" ? "svg" : config.format === "jpg" ? "jpg" : "png";
+    const filename = config.format === "svg" ? "filmstrip.svg" : `export.${ext}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    showError("Export failed: " + err.message);
+  } finally {
+    downloadExportBtn.disabled = false;
+    downloadExportBtn.textContent = origText;
+  }
+});
+
+// --- Download individual frames ---
+
+downloadFramesBtn.addEventListener("click", async () => {
   const checked = grid.querySelectorAll('input[type="checkbox"]:checked');
   const selected = Array.from(checked).map(cb => cb.dataset.src);
   if (selected.length === 0) { showError("Please select at least one image to download."); return; }
-  downloadAllBtn.disabled = true;
-  exportBtn.disabled = true;
-  exportPngBtn.disabled = true;
+  downloadFramesBtn.disabled = true;
   status.textContent = `Downloading ${selected.length} selected image(s)...`;
   status.className = "";
   try {
@@ -340,62 +639,14 @@ downloadAllBtn.addEventListener("click", async () => {
   } catch (err) {
     showError("Download failed: " + err.message);
   } finally {
-    downloadAllBtn.disabled = false;
+    downloadFramesBtn.disabled = false;
     updateSelectionCount();
   }
 });
 
-function updateSelectionCount() {
-  const checked = grid.querySelectorAll('input[type="checkbox"]:checked');
-  const count = checked.length;
-  selCount.textContent = `${count} frame${count !== 1 ? "s" : ""} selected`;
-  exportBtn.disabled = count === 0;
-  downloadAllBtn.disabled = count === 0;
-  updatePreview();
-}
-
-exportBtn.addEventListener("click", async () => {
-  const checked = grid.querySelectorAll('input[type="checkbox"]:checked');
-  const selected = Array.from(checked).map(cb => cb.dataset.src);
-  if (selected.length === 0) { showError("Please select at least one frame."); return; }
-
-  exportBtn.disabled = true;
-  exportBtn.textContent = "Generating...";
-
-  try {
-    const res = await fetch("/filmstrip", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ frames: selected }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      showError(data.detail || "Export failed");
-      return;
-    }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "filmstrip.svg";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    showError("Export failed: " + err.message);
-  } finally {
-    exportBtn.disabled = false;
-    exportBtn.textContent = "Export Filmstrip SVG";
-  }
-});
-
-function showError(msg) {
-  status.textContent = msg;
-  status.className = "error";
-  btn.disabled = false;
-  downloadAllBtn.disabled = false;
-}
+// Init format-dependent visibility
+onFormatChange();
+onBorderToggle();
 </script>
 </body>
 </html>
